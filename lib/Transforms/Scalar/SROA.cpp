@@ -4366,9 +4366,7 @@ bool SROA::runOnAlloca(AllocaInst &AI) {
     return Changed;
 
   // Delete all the dead users of this alloca before splitting and rewriting it.
-  LLVM_DEBUG(dbgs() << "SROA dead users:\n");
   for (Instruction *DeadUser : AS.getDeadUsers()) {
-    LLVM_DEBUG(dbgs() << "  dead user: " << *DeadUser << "\n");
     // Free up everything used by this instruction.
     for (Use &DeadOp : DeadUser->operands())
       clobberUse(DeadOp);
@@ -4380,9 +4378,7 @@ bool SROA::runOnAlloca(AllocaInst &AI) {
     DeadInsts.insert(DeadUser);
     Changed = true;
   }
-  LLVM_DEBUG(dbgs() << "SROA dead ops:\n");
   for (Use *DeadOp : AS.getDeadOperands()) {
-    LLVM_DEBUG(dbgs() << "  dead op: " << *DeadOp << "\n");
     clobberUse(*DeadOp);
     Changed = true;
   }
@@ -4458,51 +4454,8 @@ bool SROA::promoteAllocas(Function &F) {
   NumPromoted += PromotableAllocas.size();
 
   LLVM_DEBUG(dbgs() << "Promoting allocas with mem2reg...\n");
-
-  // Two strategies here: if the alloca doesn't have any store, we consider
-  // this as a function argument, and promote it to this. Otherwise, we let
-  // mem2reg do his job!
-  std::vector<AllocaInst*> Mem2RegAllocas;
-  std::vector<AllocaInst*> ToArgsAllocas;
-  Mem2RegAllocas.reserve(PromotableAllocas.size());
-  ToArgsAllocas.reserve(PromotableAllocas.size());
-  auto HasStore = [](AllocaInst* AI) {
-    for (auto* U: AI->users()) {
-      if (isa<StoreInst>(U))
-        return true;
-    }
-    return false;
-  };
-  for (AllocaInst* AI: PromotableAllocas) {
-    if (HasStore(AI)) {
-      Mem2RegAllocas.push_back(AI); 
-    }
-    else {
-      ToArgsAllocas.push_back(AI);
-    }
-  }
+  PromoteMemToReg(PromotableAllocas, *DT, AC);
   PromotableAllocas.clear();
-  PromoteMemToReg(Mem2RegAllocas, *DT, AC);
-
-  if (ToArgsAllocas.size() > 0) {
-    // We can't technically do this here (create a new function). Set the
-    // arguments as GV, and have a module pass clean this up afterwards!
-    for (auto* AI: ToArgsAllocas) {
-      auto* GV = new GlobalVariable(*F.getParent(), AI->getAllocatedType(), false, GlobalValue::ExternalLinkage, nullptr, AI->getName());
-      AI->replaceAllUsesWith(GV);
-    }
-#if 0
-    auto* OrgFTy = F.getFunctionType();
-    SmallVector<Type*, 8> Args = OrgTy->params();
-    Args.reserve(Args.size() + ToArgsAllocas.size());
-    for (auto* AI: ToArgsAllocas) {
-      Args.push_back(AI->getType());
-    }
-    FunctionType* FTy = FunctionType::get(F.getRetType(), Args, false);
-    Function* NewF = Function::Create(FTy, F.getLinkage(), F.getName(), *F.getParent());
-    CloneFunctionInto();
-#endif
-  }
   return true;
 }
 
@@ -4528,9 +4481,7 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   do {
     while (!Worklist.empty()) {
       Changed |= runOnAlloca(*Worklist.pop_back_val());
-      LLVM_DEBUG(dbgs() << F << "\n");
       Changed |= deleteDeadInstructions(DeletedAllocas);
-      LLVM_DEBUG(dbgs() << F << "\n");
 
       // Remove the deleted allocas from various lists so that we don't try to
       // continue processing them.
