@@ -492,7 +492,6 @@ FunctionPass *createLibCallsShrinkWrapPass();
 //
 Pass *createLoopSimplifyCFGPass();
 
-ModulePass* createScalarizeStackPass();
 } // End llvm namespace
 
 #endif

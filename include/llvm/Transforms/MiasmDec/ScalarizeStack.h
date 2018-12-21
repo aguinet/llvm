@@ -1,5 +1,5 @@
-#ifndef LLVM_TRANSFORMS_SCALAR_SCALARIZE_STACK_H
-#define LLVM_TRANSFORMS_SCALAR_SCALARIZE_STACK_H
+#ifndef LLVM_MIASM_DEC_SCALARIZE_STACK_H
+#define LLVM_MIASM_DEC_SCALARIZE_STACK_H
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
@@ -16,4 +16,4 @@ public:
 
 } // llvm
 
-#endif // LLVM_TRANSFORMS_SCALAR_FLOAT2INT_H
+#endif

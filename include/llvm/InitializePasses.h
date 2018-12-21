@@ -61,6 +61,9 @@ void initializeGlobalISel(PassRegistry&);
 /// Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
+/// Initialize all passes linked into the MiasmDec library.
+void initializeMiasmDec(PassRegistry&);
+
 void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeADCELegacyPassPass(PassRegistry&);
@@ -403,6 +406,7 @@ void initializeXRayInstrumentationPass(PassRegistry&);
 
 // Miasm-related
 void initializeScalarizeStackLegacyPassPass(PassRegistry&);
+void initializeABIDecodeLegacyPassPass(PassRegistry&);
 
 } // end namespace llvm
 

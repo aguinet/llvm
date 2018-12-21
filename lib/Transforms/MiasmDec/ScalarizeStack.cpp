@@ -1,11 +1,14 @@
-#include "llvm/Transforms/Scalar/ScalarizeStack.h"
+#include "llvm/Transforms/MiasmDec.h"
+#include "llvm/Transforms/MiasmDec/ScalarizeStack.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Scalar.h"
+
+#include "Stack.h"
+#include "Tools.h"
 
 #define DEBUG_TYPE "scalarize-stack"
 
@@ -14,31 +17,13 @@ using namespace llvm;
 
 namespace {
 
-bool clobberRegister(LoadInst* Reg)
-{
-  GlobalVariable* GV = cast<GlobalVariable>(Reg->getPointerOperand());
-  Function* F = Reg->getParent()->getParent();
-  SmallVector<StoreInst*, 1> Stores; 
-  for (auto* U: GV->users()) {
-    if (auto* SI = dyn_cast<StoreInst>(U)) {
-      if (SI->getParent()->getParent() == F) {
-        Stores.push_back(SI);
-      }
-    }
-  }
-  for (auto* SI: Stores) {
-    SI->eraseFromParent();
-  }
-  return true;
-}
-
 bool processFunc(Function& F, LoadInst* SPRegLoad, GlobalVariable* GVStack)
 {
   LLVM_DEBUG(dbgs() << "in function '" << F.getName() << "', stack pointer loaded at " << *SPRegLoad << "\n");
   auto& Ctx = F.getContext();
 
   // Clobber the stack register
-  clobberRegister(SPRegLoad);
+  miasmdec::ClobberRegister(SPRegLoad);
 
   // TODO: check the result of this loading is an integer the size of a pointer!
 
@@ -157,14 +142,14 @@ bool ScalarizeStackPass::runImpl(Module& M) {
     return false;
   }
 
-  auto& Ctx = M.getContext();
-  GlobalVariable* GVStack = new GlobalVariable(M, Type::getInt8PtrTy(Ctx), false, GlobalVariable::ExternalLinkage, nullptr, "g_stack");
+  GlobalVariable* GVStack = miasmdec::GetOrCreateStackGV(M);
 
   for (auto& FLI: Funcs) {
-    processFunc(*FLI.first, FLI.second, GVStack);
+    auto& F = *FLI.first;
+    processFunc(F, FLI.second, GVStack);
+    // Run SROA and InstCombine
   }
 
-  // Run SROA, InstCombine
   return true;
 }
 
