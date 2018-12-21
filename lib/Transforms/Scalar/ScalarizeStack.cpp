@@ -32,7 +32,7 @@ bool clobberRegister(LoadInst* Reg)
   return true;
 }
 
-bool processFunc(Function& F, LoadInst* SPRegLoad)
+bool processFunc(Function& F, LoadInst* SPRegLoad, GlobalVariable* GVStack)
 {
   LLVM_DEBUG(dbgs() << "in function '" << F.getName() << "', stack pointer loaded at " << *SPRegLoad << "\n");
   auto& Ctx = F.getContext();
@@ -45,12 +45,15 @@ bool processFunc(Function& F, LoadInst* SPRegLoad)
   // TODO: some range analysis to figure out the stack size
   const size_t StackSize = 65536;
   // Allocate of stack of StackSize
+  IRBuilder<> IRB(SPRegLoad);
   ArrayType* StackTy = ArrayType::get(Type::getInt8Ty(Ctx), StackSize);
-  AllocaInst* Stack = new AllocaInst(StackTy, 0, nullptr, "stack", SPRegLoad);
+  AllocaInst* Stack = IRB.CreateAlloca(StackTy, 0, nullptr, "stack");
   Type* I32Ty = Type::getInt32Ty(Ctx);
-  Value* StackPtr = GetElementPtrInst::Create(StackTy, Stack,
-    {ConstantInt::get(I32Ty, 0), ConstantInt::get(I32Ty,StackSize/2)},
-    "stackPtr", SPRegLoad);
+  Value* GStackPtr = IRB.CreateLoad(GVStack, "gstack_ptr");
+  Value* I0 = ConstantInt::get(I32Ty, 0);
+  IRB.CreateMemCpy(IRB.CreateInBoundsGEP(Stack, {I0, I0}), 1, GStackPtr, 1, StackSize);
+
+  Value* StackPtr = IRB.CreateInBoundsGEP(Stack, {I0, ConstantInt::get(I32Ty,StackSize/2)}, "stackPtr");
 
   // We go throught the users of SPRegLoad, and replace add/sub by a GEP on
   // stack + ptrtoint. Save this list of ptrtoints.
@@ -150,11 +153,19 @@ bool ScalarizeStackPass::runImpl(Module& M) {
     }
   }
 
-  bool Ret = false;
-  for (auto& FLI: Funcs) {
-    Ret |= processFunc(*FLI.first, FLI.second);
+  if (Funcs.size() == 0) {
+    return false;
   }
-  return Ret;
+
+  auto& Ctx = M.getContext();
+  GlobalVariable* GVStack = new GlobalVariable(M, Type::getInt8PtrTy(Ctx), false, GlobalVariable::ExternalLinkage, nullptr, "g_stack");
+
+  for (auto& FLI: Funcs) {
+    processFunc(*FLI.first, FLI.second, GVStack);
+  }
+
+  // Run SROA, InstCombine
+  return true;
 }
 
 PreservedAnalyses ScalarizeStackPass::run(Module& M, ModuleAnalysisManager &) {
