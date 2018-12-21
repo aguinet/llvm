@@ -22,10 +22,10 @@ bool processFunc(Function& F, LoadInst* SPRegLoad, GlobalVariable* GVStack)
   LLVM_DEBUG(dbgs() << "in function '" << F.getName() << "', stack pointer loaded at " << *SPRegLoad << "\n");
   auto& Ctx = F.getContext();
 
+  // TODO: check the result of SPRegLoad is an integer the size of a pointer!
+
   // Clobber the stack register
   miasmdec::ClobberRegister(SPRegLoad);
-
-  // TODO: check the result of this loading is an integer the size of a pointer!
 
   // TODO: some range analysis to figure out the stack size
   const size_t StackSize = 65536;
@@ -113,9 +113,8 @@ bool processFunc(Function& F, LoadInst* SPRegLoad, GlobalVariable* GVStack)
 namespace llvm {
 
 bool ScalarizeStackPass::runImpl(Module& M) {
-  errs() << "coucou\n";
+  // TODO: get these ABI-specific stuffs from an external definition
 
-  // TODO: get this from an external definition
   const char* SPRegName = "ESP";
   GlobalVariable* SPReg = M.getGlobalVariable(SPRegName);
   if (SPReg == nullptr) {
