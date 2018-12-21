@@ -69,6 +69,9 @@ add_llvm_library(LLVMScalarOpts
   StructurizeCFG.cpp
   TailRecursionElimination.cpp
 
+  # Miasm-specific passes
+  ScalarizeStack.cpp
+
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Scalar
