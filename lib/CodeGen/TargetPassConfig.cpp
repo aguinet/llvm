@@ -203,6 +203,31 @@ static cl::opt<std::string>
                   cl::desc("Stop compilation before a specific pass"),
                   cl::value_desc("pass-name"), cl::init(""), cl::Hidden);
 
+static ManagedStatic<std::array<SmallVector<TargetPassConfig::ExtensionFn,4>,
+  TargetPassConfig::EP_EnumSize>> GlobalExtensions;
+
+void TargetPassConfig::addGlobalExtension(
+    TargetPassConfig::ExtensionPointTy Ty,
+    TargetPassConfig::ExtensionFn Fn) {
+  (*GlobalExtensions)[Ty].push_back(Fn);
+}
+
+void TargetPassConfig::addExtension(ExtensionPointTy Ty, ExtensionFn Fn) {
+  Extensions[Ty].push_back(Fn);
+}
+
+void TargetPassConfig::addExtensionsToPM(ExtensionPointTy ETy) const {
+  if (GlobalExtensions.isConstructed()) {
+    for (auto Fn: (*GlobalExtensions)[ETy]) {
+      Fn(*this, *PM);
+    }
+  }
+  for (auto Fn: Extensions[ETy]) {
+    Fn(*this, *PM);
+  }
+}
+
+
 /// Allow standard passes to be disabled by command line options. This supports
 /// simple binary flags that either suppress the pass or do nothing.
 /// i.e. -disable-mypass=false has no effect.
@@ -884,6 +909,8 @@ void TargetPassConfig::addMachinePasses() {
     }
   }
 
+  addExtensionsToPM(EP_EarlyAsPossible);
+
   // Add passes that optimize machine instructions in SSA form.
   if (getOptLevel() != CodeGenOpt::None) {
     addMachineSSAOptimization();
@@ -895,6 +922,8 @@ void TargetPassConfig::addMachinePasses() {
 
   if (TM->Options.EnableIPRA)
     addPass(createRegUsageInfoPropPass());
+
+  addExtensionsToPM(EP_BeforeRA);
 
   // Run pre-ra passes.
   addPreRegAlloc();
@@ -908,6 +937,8 @@ void TargetPassConfig::addMachinePasses() {
 
   // Run post-ra passes.
   addPostRegAlloc();
+
+  addExtensionsToPM(EP_AfterRA);
 
   // Insert prolog/epilog code.  Eliminate abstract frame index references...
   if (getOptLevel() != CodeGenOpt::None) {
@@ -983,6 +1014,8 @@ void TargetPassConfig::addMachinePasses() {
 
   // Add passes that directly emit MI after all other MI passes.
   addPreEmitPass2();
+
+  addExtensionsToPM(EP_OptimizerLast);
 
   AddingMachinePasses = false;
 }

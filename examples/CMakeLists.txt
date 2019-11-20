@@ -7,6 +7,10 @@ add_subdirectory(Kaleidoscope)
 add_subdirectory(ModuleMaker)
 add_subdirectory(SpeculativeJIT)
 
+if (BUILD_SHARED_LIBS OR LLVM_LINK_LLVM_DYLIB)
+  add_subdirectory(OutOfTreeMIR)
+endif()
+
 if(LLVM_ENABLE_EH AND (NOT WIN32) AND (NOT "${LLVM_NATIVE_ARCH}" STREQUAL "ARM"))
     add_subdirectory(ExceptionDemo)
 endif()

@@ -1353,6 +1353,14 @@ And finally, declare the command line option for your passes.  Example:
 Here the command option is "``mypass``", with ``createDefaultMyPass`` as the
 default creator.
 
+Out-of-tree MachineIR passes
+----------------------------
+
+MachineIR passes can be implemented out-of-tree and loaded using the ``--load``
+flag of ``llc``, or ``clang`` thanks to ``-Xclang -load -Xclang Pass.so``.
+Examples of such passes are provided in the ``examples/OutOfTreeMIR``
+directory.
+
 Using GDB with dynamically loaded passes
 ----------------------------------------
 

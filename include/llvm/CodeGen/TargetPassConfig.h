@@ -15,6 +15,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/ADT/DenseMap.h"
 #include <cassert>
 #include <string>
 
@@ -81,7 +82,32 @@ public:
 /// This is an ImmutablePass solely for the purpose of exposing CodeGen options
 /// to the internals of other CodeGen passes.
 class TargetPassConfig : public ImmutablePass {
+public:
+  typedef void(*ExtensionFn)(const TargetPassConfig& Builder,
+                             legacy::PassManagerBase &PM);
+
+  enum ExtensionPointTy {
+    /// This extension point allows adding passes before
+    /// any other transformations.
+    EP_EarlyAsPossible,
+
+    /// This extension point allows adding passes before register allocation.
+    EP_BeforeRA,
+    /// This extension point allows adding passes after register allocation.
+    EP_AfterRA,
+    /// This extension point allows adding passes that / run after everything
+    //else.
+    EP_OptimizerLast,
+  };
+  static constexpr size_t EP_EnumSize = EP_OptimizerLast+1;
+
+  static void addGlobalExtension(ExtensionPointTy Ty, ExtensionFn Fn);
+  void addExtension(ExtensionPointTy Ty, ExtensionFn Fn);
+  void addExtensionsToPM(ExtensionPointTy ETy) const;
+
 private:
+  SmallVector<ExtensionFn,4> Extensions[EP_EnumSize];
+
   PassManagerBase *PM = nullptr;
   AnalysisID StartBefore = nullptr;
   AnalysisID StartAfter = nullptr;
